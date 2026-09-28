@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DYB 동탄1 추석 리뷰 퀴즈</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #1a1a2e; --card: #16213e; --accent: #e94560;
+  --red: #e21b3c; --blue: #1368ce; --yellow: #c9920a; --green: #26890c;
+  --text: #fff; --muted: #aaa; --correct: #2ecc71; --wrong: #e74c3c;
+}
+body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; min-height: 100dvh; overflow-x: hidden; }
+#app { min-height: 100dvh; display: flex; flex-direction: column; }
+
+/* LOBBY */
+.lobby { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; gap:18px; }
+.logo { font-size:clamp(1.6rem,5vw,2.2rem); font-weight:900; text-align:center; line-height:1.15; }
+.logo .accent { color:var(--accent); }
+.logo small { display:block; font-size:0.85rem; font-weight:400; color:var(--muted); margin-top:6px; }
+.card { background:var(--card); border-radius:16px; padding:20px 28px; width:100%; max-width:420px; }
+.join-form { display:flex; flex-direction:column; gap:12px; width:100%; max-width:420px; }
+.join-form input { padding:16px 20px; font-size:1.2rem; border-radius:12px; border:2px solid #444; background:var(--card); color:var(--text); text-align:center; outline:none; transition:border-color .2s; }
+.join-form input:focus { border-color:var(--accent); }
+.btn { padding:15px 28px; border-radius:12px; border:none; font-size:1.05rem; font-weight:700; cursor:pointer; transition:transform .1s, filter .15s; width:100%; }
+.btn:active { transform:scale(.97); }
+.btn-go   { background:var(--accent); color:#fff; font-size:1.2rem; }
+.btn-next { background:var(--accent); color:#fff; }
+.btn-start{ background:#2ecc71; color:#000; font-size:1.25rem; padding:18px; }
+.btn-reset{ background:#555; color:#fff; }
+.btn:disabled { opacity:.45; cursor:not-allowed; }
+.chip-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+.chip { background:var(--card); border-radius:20px; padding:7px 14px; font-size:0.88rem; }
+.status { color:var(--muted); font-size:0.9rem; text-align:center; }
+.spinner { width:44px; height:44px; border:4px solid #333; border-top-color:var(--accent); border-radius:50%; animation:spin 1s linear infinite; }
+@keyframes spin { to { transform:rotate(360deg); } }
+
+/* QUESTION */
+.q-wrap { flex:1; display:flex; flex-direction:column; min-height:100dvh; }
+.q-head { background:var(--card); padding:10px 18px; display:flex; align-items:center; gap:12px; }
+.q-meta { flex:1; overflow:hidden; }
+.q-cat  { font-size:0.72rem; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+.q-num  { font-size:0.88rem; font-weight:600; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.tcircle { width:54px; height:54px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:1.1rem; flex-shrink:0; }
+.q-body { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:20px 16px; gap:18px; }
+.q-text { font-size:clamp(1rem,3vw,1.45rem); font-weight:700; text-align:center; max-width:680px; line-height:1.45; white-space:pre-wrap; }
+.opts   { display:grid; grid-template-columns:1fr 1fr; gap:10px; width:100%; max-width:680px; }
+.opt    { padding:clamp(13px,3vw,20px) 14px; border-radius:13px; border:none; cursor:pointer; font-size:clamp(0.9rem,2.4vw,1.15rem); font-weight:700; color:#fff; text-align:left; display:flex; align-items:center; gap:10px; transition:transform .1s, filter .15s; min-height:68px; line-height:1.3; }
+.opt:active { transform:scale(.97); }
+.opt.selected { box-shadow:0 0 0 4px rgba(255,255,255,.6); filter:brightness(1.25); }
+.opt.answered { cursor:not-allowed; }
+.opt.correct  { animation:pop .4s ease; box-shadow:0 0 0 4px #fff; }
+.opt.wrong    { filter:brightness(.45); }
+@keyframes pop { 0%{transform:scale(1)} 40%{transform:scale(1.07)} 100%{transform:scale(1)} }
+.opt-icon { font-size:1.45rem; flex-shrink:0; }
+.opt-a { background:var(--red); }
+.opt-b { background:var(--blue); }
+.opt-c { background:var(--yellow); }
+.opt-d { background:var(--green); }
+.host-bar { position:fixed; bottom:0; left:0; right:0; background:rgba(0,0,0,.85); backdrop-filter:blur(6px); padding:14px 20px; display:flex; flex-direction:column; gap:8px; align-items:center; }
+.host-info { font-size:0.85rem; color:var(--muted); }
+
+.dbl-banner { background:linear-gradient(90deg,#ff9f1a,#ffd700,#ff9f1a); color:#000; font-weight:900; font-size:clamp(1rem,3vw,1.3rem); padding:8px 22px; border-radius:30px; animation:pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.07)} }
+
+/* REVEAL */
+.reveal-wrap { flex:1; display:flex; flex-direction:column; align-items:center; padding:24px 16px; gap:14px; }
+.big-icon { font-size:4.5rem; animation:pop .45s ease; }
+.feedback-msg { font-size:1.75rem; font-weight:900; text-align:center; }
+.correct-box { background:rgba(46,204,113,.15); border:2px solid var(--correct); border-radius:13px; padding:12px 22px; text-align:center; max-width:560px; width:100%; }
+.pts-badge { font-size:1.3rem; color:#ffd700; font-weight:900; }
+.bars { width:100%; max-width:560px; display:flex; flex-direction:column; gap:7px; }
+.bar-row { display:flex; align-items:center; gap:8px; }
+.bar-lbl { width:26px; font-size:.85rem; text-align:center; }
+.bar-track { flex:1; background:#333; border-radius:6px; height:26px; overflow:hidden; }
+.bar-fill  { height:100%; border-radius:6px; transition:width .5s ease; display:flex; align-items:center; padding:0 8px; font-size:0.78rem; font-weight:700; min-width:0; }
+.bar-cnt { width:28px; font-size:.82rem; text-align:right; }
+
+/* LEADERBOARD */
+.lb-wrap { flex:1; display:flex; flex-direction:column; align-items:center; padding:24px 16px; gap:10px; }
+.lb-title { font-size:1.8rem; font-weight:900; color:#ffd700; }
+.lb-list  { width:100%; max-width:480px; display:flex; flex-direction:column; gap:7px; }
+.lb-row   { background:var(--card); border-radius:12px; padding:12px 18px; display:flex; align-items:center; gap:12px; animation:slideIn .3s ease both; }
+@keyframes slideIn { from { transform:translateX(-18px); opacity:0; } }
+.lb-rank { font-size:1.35rem; font-weight:900; width:34px; text-align:center; }
+.lb-name { flex:1; font-weight:600; }
+.lb-score{ font-weight:900; color:#ffd700; }
+.lb-row.r1 { background:linear-gradient(135deg,#b8860b,#ffd700); color:#000; }
+.lb-row.r1 .lb-score { color:#000; }
+.lb-row.r2 { background:linear-gradient(135deg,#555,#aaa); }
+.lb-row.r3 { background:linear-gradient(135deg,#6b3b1a,#cd7f32); }
+
+/* DONE */
+.done-wrap { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:24px; gap:16px; }
+.emoji-big { font-size:2.8rem; display:flex; gap:6px; }
+.final-score { font-size:2rem; font-weight:900; }
+.final-acc   { color:var(--muted); font-size:0.95rem; }
+
+/* UTIL */
+.badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:.72rem; font-weight:700; letter-spacing:.5px; text-transform:uppercase; }
+.br { background:#4a0e8f; }
+.bv { background:#0e4a8f; }
+.bg { background:#0e8f4a; }
+</style>
+</head>
+<body>
+<div id="app"><div class="lobby"><div class="spinner"></div><p style="color:var(--muted)">연결 중...</p></div></div>
+
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script>
+// ═══════════════════════════════════════════════
+// QUESTION BANK (v7 — 66 questions: Reading 24 · Vocab 20 · Grammar MC 11 · Grammar 서술형 11)
+// ═══════════════════════════════════════════════
+const QS = [
+  // ── READING Unit 03 ──────────────────────────
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"The passage states it is a proven fact that:",
+    o:["Beauty standards are created by media","Beauty leads to success","Attractive people live longer","Cosmetic surgery improves happiness"], a:1, t:25 },
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"In the British study, attractive men earned ___ more than unattractive men.",
+    o:["11%","20%","15%","25%"], a:2, t:25 },
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"The passage calls the income gap between attractive and unattractive workers the:",
+    o:["success bias","beauty effect","appearance gap","social advantage"], a:1, t:25 },
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"The Cornell University study confirmed that:",
+    o:["Beautiful students get better grades","Attractive waitresses receive higher tips","Beautiful executives run more successful firms","Attractive people are hired faster"], a:1, t:25 },
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"Which is listed as a universal beauty standard across cultures?",
+    o:["Small feet","Light skin","A symmetrical face","Long hair"], a:2, t:25 },
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"The passage uses scorpion flies to show that:",
+    o:["Insects have better eyesight than humans","Animals, like humans, prefer symmetrical features","The media influences animal behavior","Only peacocks care about appearance"], a:1, t:25 },
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"Babies and animals are used as evidence because:",
+    o:["They spend money on beauty","They are not under the media's influence","They have large eyes and full lips","They prefer older faces"], a:1, t:25 },
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"Which does the passage say many people reject as \"superficial\"?",
+    o:["The beauty effect","The notion that beauty leads to success","Universal beauty standards","Cosmetic surgery"], a:1, t:25 },
+
+  // ── READING Unit 04 ──────────────────────────
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"In ancient Greece, how many requirements did you need to fulfill to vote?",
+    o:["Two","Three","At least four","Five"], a:2, t:25 },
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"Professor Bruce Meglino sees voting as an act of:",
+    o:["Social pressure","Habit","Altruism","Self-interest"], a:2, t:25 },
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"In the dictator game, Player 1 was told Player 2 would NOT learn their identity. What did about HALF of players do?",
+    o:["Kept all the money","Refused to play","Shared some of the money","Split it evenly"], a:2, t:25 },
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"Acevedo and Krueger's study showed participants felt HIGH satisfaction when they:",
+    o:["Abstained and their party won","Voted and their party lost","Voted and their party won","Abstained due to regret"], a:2, t:25 },
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"Gerber's research found that habitual voters are more likely to:",
+    o:["Vote for the same party always","Have lived at the same address for a long time","Vote only in national elections","Be influenced by social pressure"], a:1, t:25 },
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"In Gerber's Michigan experiment, which mailing caused the most dramatic increase in turnout?",
+    o:["Reminding voters it is a public duty","Telling voters researchers would track them","Listing neighborhood voter turnout","Showing both neighborhood AND household voting records"], a:3, t:25 },
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"Research suggests that unselfish people tend to:",
+    o:["Vote only when their party is likely to win","Vote more often than selfish people","Avoid elections to reduce conflict","Vote only in local elections"], a:1, t:25 },
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"The passage says democracy is put at risk when people believe:",
+    o:["Voting takes too much time","Elections are not fair","Politicians are dishonest","Voter turnout is too high"], a:1, t:25 },
+
+  // ── VOCABULARY Days 45-48 ────────────────────
+  { cat:"📝 Vocab", unit:"Day 45",
+    q:"\"Indispensable\" means:",
+    o:["독립적인 (independent)","필수불가결한 (absolutely necessary)","불가능한 (impossible)","독창적인 (original)"], a:1, t:15 },
+  { cat:"📝 Vocab", unit:"Day 45",
+    q:"\"Vanity\" means:",
+    o:["용기 (courage)","성실 (diligence)","허영심 (excessive pride in appearance)","공정 (fairness)"], a:2, t:15 },
+  { cat:"📝 Vocab", unit:"Day 45",
+    q:"\"Verdict\" is closest in meaning to:",
+    o:["도전 (challenge)","시작 (beginning)","평결, 판단 (judgment or decision)","문장 (sentence)"], a:2, t:15 },
+  { cat:"📝 Vocab", unit:"Day 45",
+    q:"\"Counteract\" means:",
+    o:["강화하다 (strengthen)","따라하다 (imitate)","중화시키다, 대항하다 (neutralize/oppose)","시작하다 (begin)"], a:2, t:15 },
+  { cat:"📝 Vocab", unit:"Day 46",
+    q:"\"Unanimous\" describes a decision that is:",
+    o:["만장일치의 — agreed by everyone","논쟁적인 — highly debated","비밀의 — kept secret","갑작스러운 — sudden"], a:0, t:15 },
+  { cat:"📝 Vocab", unit:"Day 46",
+    q:"\"Contagious\" best describes:",
+    o:["A very strong building","A disease or feeling that spreads person to person","A strict law","A feeling of safety"], a:1, t:15 },
+  { cat:"📝 Vocab", unit:"Day 46",
+    q:"\"Advocate\" (verb) means:",
+    o:["반대하다 (oppose)","무시하다 (ignore)","동의하다 (simply agree)","지지하다, 옹호하다 (support or argue for)"], a:3, t:15 },
+  { cat:"📝 Vocab", unit:"Day 47",
+    q:"\"Arbitrary\" means:",
+    o:["정확한 (precise)","공정한 (fair)","임의적인, 독단적인 (random, without reason)","체계적인 (systematic)"], a:2, t:15 },
+  { cat:"📝 Vocab", unit:"Day 47",
+    q:"\"Empathize\" means:",
+    o:["비판하다 (criticize)","공감하다, 감정 이입을 하다 (understand another's feelings)","동의하지 않다 (disagree)","무시하다 (ignore)"], a:1, t:15 },
+  { cat:"📝 Vocab", unit:"Day 47",
+    q:"\"Catastrophe\" means:",
+    o:["성공 (success)","기회 (opportunity)","대참사, 큰 재앙 (a major disaster)","희망 (hope)"], a:2, t:15 },
+  { cat:"📝 Vocab", unit:"Day 48",
+    q:"\"Legacy\" means:",
+    o:["법률 (a law)","미래 계획 (future plan)","유산 (something passed down from the past)","권력 (power)"], a:2, t:15 },
+  { cat:"📝 Vocab", unit:"Day 48",
+    q:"\"Hierarchy\" refers to:",
+    o:["역사 (history)","계급제, 위계 (a system of ranking levels)","민주주의 (democracy)","평등 (equality)"], a:1, t:15 },
+  { cat:"📝 Vocab", unit:"Day 48",
+    q:"\"Eligible\" means:",
+    o:["유명한 (famous)","우수한 (excellent)","복잡한 (complex)","적격의, 자격 있는 (qualified/entitled)"], a:3, t:15 },
+
+  // ── VOCABULARY Days 45-48 추가 ───────────────
+  { cat:"📝 Vocab", unit:"Day 45",
+    q:"\"Legitimate\" means:",
+    o:["불법적인 (illegal)","정당한, 합법적인 (lawful / valid)","독창적인 (original)","논쟁적인 (controversial)"], a:1, t:15 },
+  { cat:"📝 Vocab", unit:"Day 45",
+    q:"\"Retain\" means:",
+    o:["버리다 (throw away)","증가시키다 (increase)","유지하다, 보유하다 (keep / maintain)","줄이다 (reduce)"], a:2, t:15 },
+  { cat:"📝 Vocab", unit:"Day 46",
+    q:"\"Impartial\" means:",
+    o:["편향된 (biased)","공평한, 중립적인 (neutral / fair)","무관심한 (indifferent)","엄격한 (strict)"], a:1, t:15 },
+  { cat:"📝 Vocab", unit:"Day 46",
+    q:"\"Consensus\" means:",
+    o:["개인 의견 (personal opinion)","전문가 조언 (expert advice)","합의, 의견일치 (general agreement)","반론 (counterargument)"], a:2, t:15 },
+  { cat:"📝 Vocab", unit:"Day 47",
+    q:"\"Unprecedented\" means:",
+    o:["예상된 (expected)","반복된 (repeated)","전례 없는 (never happened before)","평범한 (ordinary)"], a:2, t:15 },
+  { cat:"📝 Vocab", unit:"Day 47",
+    q:"\"Persevere\" means:",
+    o:["포기하다 (give up)","불평하다 (complain)","인내하며 계속하다 (persist despite difficulty)","혼자 결정하다 (decide alone)"], a:2, t:15 },
+  { cat:"📝 Vocab", unit:"Day 48",
+    q:"\"Transparent\" means:",
+    o:["비밀스러운 (secretive)","투명한, 숨김없는 (open / clear)","복잡한 (complex)","엄격한 (strict)"], a:1, t:15 },
+  { cat:"📝 Vocab", unit:"Day 48",
+    q:"\"Suppress\" means:",
+    o:["장려하다 (encourage)","드러내다 (reveal)","억압하다, 억제하다 (hold back / put down)","강화하다 (strengthen)"], a:2, t:15 },
+
+  // ── GRAMMAR Ch.3 관계대명사 (객관식) ──────────
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사",
+    q:"빈칸에 알맞은 관계대명사:\n\"The student ___ won the prize is my friend.\"",
+    o:["which","whom","who","whose"], a:2, t:20 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사",
+    q:"빈칸에 알맞은 관계대명사:\n\"This is the book ___ cover is torn.\"",
+    o:["who","that","which","whose"], a:3, t:20 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사",
+    q:"다음 중 반드시 \"that\"을 써야 하는 경우는?",
+    o:["쉼표 뒤 계속적 용법 (after a comma)","전치사 바로 뒤 (right after a preposition)","선행사에 최상급이 있을 때 (after the best/most...)","선행사가 사물일 때 항상"], a:2, t:25 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사",
+    q:"다음 중 올바른 문장은?",
+    o:["She is the girl, that I met yesterday.","She is the girl that I met yesterday.","She is the girl, which I met yesterday.","She is the girl which I met yesterday."], a:1, t:20 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사",
+    q:"\"The house ___ I live in is very old.\" — 전치사를 앞으로 이동하면?",
+    o:["The house in which I live is very old.","The house in that I live is very old.","The house which in I live is very old.","The house that in I live is very old."], a:0, t:25 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사",
+    q:"관계대명사를 생략할 수 있는 경우는?",
+    o:["관계대명사가 절의 주어일 때","관계대명사가 절의 목적어일 때","관계대명사 앞에 전치사가 있을 때","계속적 용법(쉼표 뒤)일 때"], a:1, t:25 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사",
+    q:"\"She is the person ___ everyone respects.\" — 알맞은 관계대명사는?",
+    o:["who","whom","whose","which"], a:1, t:20 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사",
+    q:"다음 중 관계대명사 계속적 용법(쉼표)이 올바르게 쓰인 문장은?",
+    o:["I have a dog, which name is Max.","I have a dog, whose name is Max.","I have a dog, that name is Max.","I have a dog, whom name is Max."], a:1, t:25 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사",
+    q:"\"She has two sons, ___ are both doctors.\" — 알맞은 관계대명사는?",
+    o:["that","who","whom","whose"], a:1, t:20 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사",
+    q:"\"I met Tom, that is my cousin.\"\n이 문장이 틀린 이유로 알맞은 것은?",
+    o:["선행사가 사물이라서","쉼표 뒤 계속적 용법이라서","선행사가 최상급이어서","선행사에 no가 붙어서"], a:1, t:25 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사",
+    q:"다음 빈칸에 공통으로 알맞은 것은?\n① This is the car ___ I drive.\n② He is the man ___ everyone trusts.",
+    o:["who","which","whom","that"], a:3, t:25 },
+
+  // ── GRAMMAR Ch.3 킬러 문항 (서술형 입력) ─────
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사 【서술형】", type:"input",
+    q:"두 문장을 관계대명사로 연결하시오.\n\nI have a friend. + Her father is a famous doctor.\n\n→ I have a friend ___ father is a famous doctor.",
+    a:["whose"], t:35 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사 【서술형】", type:"input",
+    q:"빈칸에 알맞은 관계대명사를 쓰시오.\n\n\"He is the most talented singer ___ I have ever heard.\"",
+    a:["that"], t:30 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사 【서술형】", type:"input",
+    q:"전치사를 관계대명사 앞으로 이동하여 빈칸을 완성하시오.\n\n\"He is the friend that I traveled with.\"\n\n→ He is the friend ___ ___ I traveled.",
+    a:["with whom"], t:40 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사 【서술형】", type:"input",
+    q:"다음 문장에서 틀린 관계대명사를 찾아 올바르게 고쳐 쓰시오.\n\n\"This is the only solution which we can use.\"\n\n→ ___",
+    a:["that"], t:35 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사 【서술형】", type:"input",
+    q:"두 문장을 관계대명사로 연결하시오.\n\nThe building was destroyed in the fire. + I was born in it.\n\n→ The building ___ ___ I was born was destroyed in the fire.",
+    a:["in which"], t:40 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사 【서술형】", type:"input",
+    q:"괄호 안의 두 문장을 관계대명사로 연결하여 한 문장으로 만드시오.\n\n(Tom is a boy.) + (Everyone likes him.)\n\n→ Tom is a boy ___  everyone likes.",
+    a:["whom","who","that"], t:35 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사 【서술형】", type:"input",
+    q:"빈칸에 공통으로 들어갈 관계대명사를 쓰시오.\n\n① The car ___ I bought is red.\n② She is the best student ___ ever studied here.",
+    a:["that"], t:35 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사 【서술형】", type:"input",
+    q:"두 문장을 관계대명사로 연결하시오.\n\nI met a woman. + She is a famous writer.\n\n→ I met a woman ___ is a famous writer.",
+    a:["who","that"], t:30 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사 【서술형】", type:"input",
+    q:"다음 문장에서 틀린 관계대명사를 찾아 올바르게 고쳐 쓰시오.\n\n\"My sister, that lives in Seoul, is a teacher.\"\n\n→ 틀린 단어: ___",
+    a:["who"], t:35 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사 【서술형】", type:"input",
+    q:"빈칸에 알맞은 관계대명사를 쓰시오.\n\n\"The man ___ I spoke to yesterday was very kind.\"\n\n(힌트: 전치사 to의 목적어 역할)",
+    a:["whom","who","that"], t:35 },
+  { cat:"✏️ Grammar", unit:"Grammar Smart 3 · Ch.3 관계대명사 【서술형】", type:"input",
+    q:"두 문장을 관계대명사로 연결하여 빈칸을 완성하시오.\n\nShe wrote a novel. + Its ending surprised everyone.\n\n→ She wrote a novel ___ ending surprised everyone.",
+    a:["whose"], t:35 }
+];
+
+// ── READING 추가 문항 (Unit 03 · Unit 04) ─────
+QS.splice(8, 0,
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"In the British study, attractive women earned ___ more than unattractive women.",
+    o:["6%","11%","15%","31%"], a:1, t:25 },
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"The passage mentions ALL of the following as universal beauty standards EXCEPT:",
+    o:["A symmetrical face","Clear eye whites","Light skin","Large eyes and full lips"], a:2, t:25 },
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"In the Shanghai study, unattractive WOMEN earned ___ less than average.",
+    o:["11%","15%","25%","31%"], a:3, t:25 },
+  { cat:"📖 Reading", unit:"Unit 03 · Beauty & Success",
+    q:"The passage's overall message about beauty is best described as:",
+    o:["Beauty is unfair and should be ignored","Beauty preferences are purely cultural","Beauty's influence is real, measurable, and not merely superficial","Beautiful people always succeed in life"], a:2, t:25 }
+);
+
+// Unit 04 추가 (기존 Unit 04 마지막 뒤에 삽입)
+const u4extraIdx = QS.reduce((acc,q,i)=>q.unit==="Unit 04 · Why Do We Vote?"?i:acc,0) + 1;
+QS.splice(u4extraIdx, 0,
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"Why did James Fowler use the \"dictator game\"?",
+    o:["To test how much people trust the government","To study the degree to which altruism affects voting habits","To see how peer pressure affects donations","To find out whether non-voters are selfish"], a:1, t:25 },
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"A dictator-game player who split the money was ___ as likely to vote as one who kept it all.",
+    o:["half","equally","twice","three times"], a:2, t:25 },
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"Acevedo and Krueger found participants expected MORE regret when they:",
+    o:["Voted and their party won","Voted and lost, or abstained and won","Abstained and their party lost","Did not know the result"], a:1, t:25 },
+  { cat:"📖 Reading", unit:"Unit 04 · Why Do We Vote?",
+    q:"The mailing that showed BOTH household and neighborhood records raised turnout by:",
+    o:["1.8%","4.5%","8.1%","29.7%"], a:2, t:25 }
+);
+
+const COLS = ["opt-a","opt-b","opt-c","opt-d"];
+const SHAPES = ["▲","◆","●","✖"];
+const CLRS  = ["red","blue","yellow","green"];
+const MEDALS = ["🥇","🥈","🥉","4","5","6","7","8","9","10"];
+
+// ═══════════════════════════════════════════════
+// ⚙️ 설정 — 여기만 바꾸면 됩니다
+// ═══════════════════════════════════════════════
+// Firebase 콘솔 → 프로젝트 설정 → 내 앱 → firebaseConfig 를 그대로 붙여넣기
+const firebaseConfig = {
+  apiKey: "AIzaSyA2k1eKDemYkcWnUOUIXQilmc3R5DG2dCk",
+  authDomain: "satclass-cb0bb.firebaseapp.com",
+  projectId: "satclass-cb0bb",
+  storageBucket: "satclass-cb0bb.firebasestorage.app",
+  messagingSenderId: "604921955344",
+  appId: "1:604921955344:web:525ff6d95c03b304cfb695"
+};
+const APP_VER = "v10";               // 버전 (다른 버전 기기는 자동 새로고침)
+const HOST_PIN = "dyb2026";          // 선생님 비밀번호 (원하면 변경)
+const ROOM = "chuseok_quiz";         // Firestore 문서 이름
+
+// ─────────────────── STATE ───────────────────
+let isHost = sessionStorage.getItem("dyb_host")==="1";
+let myName = localStorage.getItem("dyb_nm") || "";
+let myId   = localStorage.getItem("dyb_id") || (Date.now().toString(36)+Math.random().toString(36).slice(2));
+localStorage.setItem("dyb_id", myId);
+
+let gs = { phase:"lobby", currentQ:0, session:"", startTime:0, order:[], doubles:[] };
+
+// ── 라운드(중간 순위) 구간: 7~8문제씩, 마지막 문제에서 딱 끝나게 ──
+const ROUNDS = Math.max(1, Math.round(QS.length/7.5));
+const CHECKPOINTS = Array.from({length:ROUNDS},(_,k)=>Math.round(QS.length*(k+1)/ROUNDS)-1); // 0-based 위치
+function roundOf(pos){ return CHECKPOINTS.findIndex(c=>pos<=c)+1; }
+// 현재 게임 순서대로 문제 가져오기
+function QAt(pos){ const o=gs.order; return QS[(o&&o.length===QS.length)?o[pos]:pos]; }
+function isDouble(pos){ return (gs.doubles||[]).includes(pos); }
+function shuffle(a){ a=a.slice(); for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} return a; }
+function makeGame(){
+  const order = shuffle(QS.map((_,i)=>i));
+  // 라운드마다 더블 1문제씩 (라운드 첫 문제 제외)
+  const doubles = []; let start=0;
+  CHECKPOINTS.forEach(end=>{ const lo=start+1, hi=end; doubles.push(lo+Math.floor(Math.random()*(hi-lo+1))); start=end+1; });
+  return { order, doubles };
+}
+let localStart = 0;        // 이 기기에서 현재 문제를 받은 시각 (기기 시계 차이 방지)
+let myAnswers = [];
+let myScore   = 0;
+let timerIv   = null;
+let peers     = {};
+let showPin   = false;
+let db, stateRef, playersCol;
+
+const app = document.getElementById("app");
+
+// ─────────────────── INIT ────────────────────
+function init() {
+  if (firebaseConfig.apiKey==="PASTE_HERE") {
+    app.innerHTML = `<div class="lobby"><div class="logo">⚙️ 설정 필요</div>
+      <div class="status">파일 위쪽 firebaseConfig에 Firebase 설정값을 붙여넣어 주세요.</div></div>`;
+    return;
+  }
+  firebase.initializeApp(firebaseConfig);
+  db = firebase.firestore();
+  stateRef   = db.collection("quiz_state").doc(ROOM);
+  playersCol = db.collection("quiz_players");
+
+  let playersUnsub = null;
+  stateRef.onSnapshot(snap => {
+    const d = snap.data() || { phase:"lobby", currentQ:0, session:"s0", startTime:0 };
+    if (d.ver && d.ver !== APP_VER) {
+      if (isHost) { /* 선생님이 새 버전이면 아래 setState로 ver가 덮어써짐 */ }
+      else { versionMismatch(d.ver); window._vm=true; return; }
+    }
+    const wasVm = window._vm; window._vm=false;
+    const sessionChanged = d.session !== gs.session;
+    const changed = sessionChanged || d.phase !== gs.phase || d.currentQ !== gs.currentQ;
+    if (d.phase==="question" && (changed)) localStart = Date.now();
+    if (sessionChanged) {
+      // 새 게임 → 내 점수 초기화, 참가자 구독 다시
+      if (gs.session) { myAnswers=[]; myScore=0; }
+      gs.session = d.session;
+      if (playersUnsub) playersUnsub();
+      playersUnsub = playersCol.where("session","==",d.session).onSnapshot(qs => {
+        peers = {};
+        qs.forEach(doc => { const p = doc.data(); if (p.name) peers[p.id] = p; });
+        if (gs.phase==="lobby") renderLobby();
+        else if (gs.phase==="reveal" || gs.phase==="lb" || gs.phase==="done") onPhaseChange();
+        else if (gs.phase==="question" && isHost) updateHostCount();
+      });
+      if (myName && !isHost) sendPresence();
+    }
+    gs = { phase:d.phase, currentQ:d.currentQ, session:d.session, startTime:d.startTime||0, order:d.order||[], doubles:d.doubles||[] };
+    if (changed || wasVm) onPhaseChange();
+  }, err => {
+    app.innerHTML = `<div class="lobby"><div class="logo">⚠️ 연결 오류</div><div class="status">${esc(err.message)}</div></div>`;
+  });
+}
+
+function setState(phase, currentQ, newSession, game) {
+  const g = game || { order: gs.order||[], doubles: gs.doubles||[] };
+  const data = { phase, currentQ, session: newSession || gs.session || "s0", startTime: Date.now(), order:g.order, doubles:g.doubles, ver:APP_VER };
+  stateRef.set(data).catch(e=>alert("저장 실패: "+e.message));
+}
+
+function versionMismatch(v) {
+  // 캐시된 예전 파일이면 한 번 자동 새로고침, 그래도 다르면 안내
+  const k = "dyb_reload_"+v;
+  if (!sessionStorage.getItem(k)) { sessionStorage.setItem(k,"1"); location.replace(location.pathname+"?v="+encodeURIComponent(v)+"&t="+Date.now()); return; }
+  app.innerHTML = `<div class="lobby"><div class="logo">🔄 새 버전이 있어요</div>
+    <div class="status">선생님 화면과 버전이 달라요. 아래 버튼을 눌러주세요.</div>
+    <button class="btn btn-go" style="max-width:320px" onclick="location.replace(location.pathname+'?t='+Date.now())">새로고침</button></div>`;
+}
+
+function sendPresence() {
+  if (!playersCol || !myName || isHost || !gs.session) return;
+  const qi = gs.currentQ;
+  const a = myAnswers[qi];
+  playersCol.doc(gs.session+"_"+myId).set({
+    id:myId, name:myName, score:myScore, session:gs.session,
+    lastA: a ? { qi, a:a.a, correct:a.correct, pts:a.pts } : null
+  }).catch(()=>{});
+}
+
+function onPhaseChange() {
+  clearInterval(timerIv);
+  const p = gs.phase;
+  if (!isHost && (!myName || showPin)) { renderLobby(); return; }
+  if      (p==="lobby")    renderLobby();
+  else if (p==="question") renderQuestion();
+  else if (p==="reveal")   renderReveal();
+  else if (p==="lb")       renderLB();
+  else if (p==="done")     renderDone();
+}
+
+// ─────────────── LOBBY ───────────────────────
+function renderLobby() {
+  // 입력 중인 이름/비밀번호가 화면 갱신으로 지워지지 않게 보존
+  const keep = {}; ["ni","pin"].forEach(id=>{ const el=document.getElementById(id); if(el) keep[id]={v:el.value,f:document.activeElement===el}; });
+  _renderLobby();
+  Object.entries(keep).forEach(([id,k])=>{ const el=document.getElementById(id); if(el){ el.value=k.v; if(k.f) el.focus(); } });
+}
+function _renderLobby() {
+  const joined = Object.values(peers);
+  const n = joined.length;
+  if (isHost) {
+    app.innerHTML = `
+      <div class="lobby">
+        <div class="logo">🎮 DYB 동탄1<br><span class="accent">추석 리뷰 퀴즈</span>
+          <small>Reading · Vocabulary · Grammar · 총 ${QS.length}문제</small>
+        </div>
+        <div class="card" style="text-align:center">
+          <div style="font-size:.75rem;color:var(--muted);letter-spacing:1px;margin-bottom:8px">이 링크를 학생들과 공유하세요</div>
+          <div style="font-size:.85rem;color:var(--accent);word-break:break-all;font-weight:600">${esc(location.href.split("#")[0])}</div>
+        </div>
+        <div class="card">
+          <div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">👥 접속한 학생</div>
+          <div style="font-size:2rem;font-weight:900;margin-bottom:10px">${n}명 대기 중</div>
+          <div class="chip-row">${joined.map(p=>`<div class="chip">🙋 ${esc(p.name)}</div>`).join("")||'<span class="status">아직 학생이 없어요</span>'}</div>
+        </div>
+        <button class="btn btn-start" onclick="hStart()">▶ 게임 시작!</button>
+        <button class="btn btn-reset" style="font-size:.9rem" onclick="hNewSession()">🧹 대기 명단 비우기 (새 게임)</button>
+        <div class="status" style="opacity:.5;font-size:.7rem">${APP_VER}</div>
+        <div class="status">Reading 24 · 단어 21 · 문법 객관식 11 · 문법 서술형 11 · 총 ${QS.length}문제<br>🔀 순서 랜덤 · ⚡ 라운드마다 더블 1문제 · 🏆 ${ROUNDS}라운드 (7~8문제마다 순위)</div>
+      </div>`;
+  } else if (showPin) {
+    app.innerHTML = `
+      <div class="lobby">
+        <div class="logo">👩‍🏫 선생님 입장</div>
+        <div class="join-form">
+          <input id="pin" type="password" placeholder="비밀번호" autocomplete="off"
+            onkeydown="if(event.key==='Enter')doHostLogin()">
+          <button class="btn btn-start" onclick="doHostLogin()">입장</button>
+          <button class="btn btn-reset" style="font-size:.9rem" onclick="showPin=false;onPhaseChange()">← 뒤로</button>
+        </div>
+      </div>`;
+    setTimeout(()=>document.getElementById("pin")?.focus(),50);
+  } else if (!myName) {
+    app.innerHTML = `
+      <div class="lobby">
+        <div class="logo">🎮 DYB 동탄1<br><span class="accent">추석 리뷰 퀴즈</span>
+          <small>${gs.phase!=="lobby"?"🎮 게임 진행 중! 입장하면 다음 문제부터 참여해요":"로그인 없이 바로 참여 가능!"}</small>
+        </div>
+        <div class="join-form">
+          <input id="ni" type="text" placeholder="이름 입력 (예: 김현채)" maxlength="10"
+            onkeydown="if(event.key==='Enter')doJoin()" autocomplete="off">
+          <button class="btn btn-go" onclick="doJoin()">입장하기 🚀</button>
+        </div>
+        <button onclick="showPin=true;renderLobby()" style="background:none;border:none;color:#666;font-size:.8rem;cursor:pointer;margin-top:20px">선생님 입장</button>
+      </div>`;
+  } else {
+    app.innerHTML = `
+      <div class="lobby">
+        <div class="logo">🎮 DYB 동탄1<br><span class="accent">추석 리뷰 퀴즈</span></div>
+        <div style="font-size:3rem">👋</div>
+        <div style="font-size:1.6rem;font-weight:900">${esc(myName)}</div>
+        <div class="status">선생님이 게임을 시작할 때까지 기다리세요!</div>
+        <div class="spinner"></div>
+        <div class="status">현재 접속: ${n}명</div>
+        <div class="chip-row">${joined.map(p=>`<div class="chip">${p.id===myId?"✨ ":""}${esc(p.name)}</div>`).join("")}</div>
+        <button onclick="changeName()" style="background:none;border:none;color:#666;font-size:.8rem;cursor:pointer;margin-top:10px">이름 바꾸기</button>
+      </div>`;
+  }
+}
+
+function doJoin() {
+  const v = (document.getElementById("ni")?.value||"").trim();
+  if (!v) { const el=document.getElementById("ni"); if(el) el.style.borderColor="var(--accent)"; return; }
+  myName = v;
+  localStorage.setItem("dyb_nm", myName);
+  myAnswers = []; myScore = 0;
+  sendPresence();
+  onPhaseChange();
+}
+function changeName() {
+  if (playersCol && gs.session) playersCol.doc(gs.session+"_"+myId).delete().catch(()=>{});
+  myName=""; localStorage.removeItem("dyb_nm"); onPhaseChange();
+}
+function doHostLogin() {
+  const el = document.getElementById("pin");
+  if ((el?.value||"").trim() !== HOST_PIN) { if(el){el.value="";el.placeholder="비밀번호가 틀렸어요";el.style.borderColor="var(--accent)";} return; }
+  isHost = true; sessionStorage.setItem("dyb_host","1"); showPin=false;
+  onPhaseChange();
+  if (stateRef) stateRef.set({ ver: APP_VER }, { merge:true }).catch(()=>{});
+}
+
+function hStart()      { setState("question", 0, null, makeGame()); }
+function hNewSession() { setState("lobby", 0, "s"+Date.now().toString(36)); }
+
+// ─────────────── QUESTION ────────────────────
+function updateHostCount() {
+  const el = document.getElementById("hcount");
+  if (!el) return;
+  const qi = gs.currentQ;
+  el.textContent = `답변 ${Object.values(peers).filter(p=>p.lastA?.qi===qi).length}/${Object.values(peers).length}명 완료`;
+}
+
+function renderQuestion() {
+  const qi = gs.currentQ;
+  const q  = QAt(qi);
+  if (!q) return;
+  const dbl = isDouble(qi);
+  const myA = myAnswers[qi];
+  const tl  = timeLeft();
+  const pct = Math.max(0, tl / q.t * 100).toFixed(1);
+  const tc  = tl > q.t*.5 ? "#00d2d3" : tl > q.t*.25 ? "#ffd700" : "#e94560";
+  const ans = myA !== undefined ? myA : null;
+  const canAnswer = !isHost && myName;
+
+  app.innerHTML = `
+    <div class="q-wrap">
+      <div class="q-head">
+        <div class="q-meta">
+          <div class="q-cat"><span class="badge ${badgeCls(q.cat)}">${q.cat}</span></div>
+          <div class="q-num">Q${qi+1}/${QS.length} · Round ${roundOf(qi)}/${ROUNDS} · ${esc(q.unit)}</div>
+        </div>
+        <div class="tcircle" id="tc" style="background:conic-gradient(${tc} ${pct}%,#333 0)">
+          <span id="tn">${Math.ceil(tl)}</span>
+        </div>
+      </div>
+      <div class="q-body" style="${isHost?"padding-bottom:120px":""}">
+        ${dbl?`<div class="dbl-banner">⚡ 더블 점수 찬스! ×2 ⚡</div>`:""}
+        <div class="q-text">${esc(q.q)}</div>
+        ${!canAnswer && !isHost ? `<div class="status">이름을 입력하지 않아 구경 모드예요</div>` : ""}
+        ${q.type==="input" ? (isHost ? `<div class="status">✏️ 서술형 — 학생들이 답을 입력하는 중</div>` : `
+        <div style="width:100%;max-width:560px;display:flex;flex-direction:column;gap:10px;align-items:center">
+          ${ans!==null && ans.a!==null ? `
+            <div style="background:var(--card);border-radius:13px;padding:16px 24px;text-align:center;width:100%">
+              <div style="font-size:.8rem;color:var(--muted);margin-bottom:6px">내 답변</div>
+              <div style="font-size:1.4rem;font-weight:900;color:#ffd700">${esc(String(ans.a))}</div>
+            </div>
+            <button class="btn btn-reset" style="max-width:200px;font-size:.95rem" onclick="editInput()">✏️ 수정하기</button>
+            <div style="color:var(--muted);font-size:.85rem">정답 공개 전까지 수정 가능</div>
+          ` : `
+            <input id="inp" type="text" placeholder="정답을 영어로 입력하세요" autocomplete="off" autocapitalize="off"
+              style="padding:16px 20px;font-size:1.2rem;border-radius:12px;border:2px solid #444;background:var(--card);color:var(--text);text-align:center;outline:none;width:100%"
+              onkeydown="if(event.key==='Enter')submitInput()">
+            <button class="btn btn-go" style="max-width:240px" onclick="submitInput()">제출하기 ✏️</button>
+          `}
+        </div>`) : `
+        <div class="opts">
+          ${q.o.map((opt,i)=>`
+            <button class="opt ${COLS[i]}${ans!==null&&ans.a===i?" selected":""}" ${isHost?"style='cursor:default'":`onclick="pick(${i})"`}>
+              <span class="opt-icon">${SHAPES[i]}</span>
+              <span>${esc(opt)}</span>
+            </button>`).join("")}
+        </div>
+        ${ans!==null&&typeof ans.a==="number"?`<div class="status">✅ <strong>${SHAPES[ans.a]} ${esc(q.o[ans.a])}</strong> 선택 · 변경하려면 다른 버튼을 누르세요</div>`:""}`}
+      </div>
+      ${isHost?`
+        <div class="host-bar">
+          <div class="host-info" id="hcount"></div>
+          <button class="btn btn-next" onclick="hReveal()">정답 공개 →</button>
+        </div>`:""}
+    </div>`;
+  updateHostCount();
+  startTimer(qi, q);
+}
+
+function startTimer(qi, q) {
+  clearInterval(timerIv);
+  timerIv = setInterval(()=>{
+    const tl = timeLeft();
+    const pct = Math.max(0, tl / q.t * 100).toFixed(1);
+    const tc  = tl > q.t*.5 ? "#00d2d3" : tl > q.t*.25 ? "#ffd700" : "#e94560";
+    const el = document.getElementById("tc");
+    const num= document.getElementById("tn");
+    if (el) el.style.background = `conic-gradient(${tc} ${pct}%,#333 0)`;
+    if (num) num.textContent = Math.max(0,Math.ceil(tl));
+    if (tl<=0) {
+      clearInterval(timerIv);
+      if (isHost) hReveal();
+      else {
+        // 시간 종료 → 입력 잠금
+        document.querySelectorAll(".opt").forEach(b=>b.onclick=null);
+        const inp=document.getElementById("inp"); if(inp) inp.disabled=true;
+      }
+    }
+  }, 200);
+}
+
+function timeLeft() {
+  const q = QAt(gs.currentQ);
+  if (!q) return 0;
+  return Math.max(0, (localStart + q.t*1000 - Date.now())/1000);
+}
+
+function pick(i) {
+  const qi = gs.currentQ;
+  if (gs.phase!=="question" || isHost || !myName || timeLeft()<=0) return;
+  const q = QAt(qi);
+  const tl = timeLeft();
+  const prev = myAnswers[qi];
+  if (prev && prev.a === i) return;
+  if (prev) myScore -= (prev.pts||0);
+  const correct = i===q.a;
+  const pts = correct ? Math.round(500+500*(tl/q.t)) * (isDouble(qi)?2:1) : 0;
+  myAnswers[qi] = { a:i, tl, correct, pts };
+  myScore += pts;
+  sendPresence();
+  renderQuestion();
+}
+
+function submitInput() {
+  const qi = gs.currentQ;
+  if (gs.phase!=="question" || isHost || !myName || timeLeft()<=0) return;
+  const q = QAt(qi);
+  const val = (document.getElementById("inp")?.value||"").trim().toLowerCase().replace(/\s+/g," ");
+  if (!val) { const el=document.getElementById("inp"); if(el){el.style.borderColor="var(--accent)";el.focus();} return; }
+  const tl = timeLeft();
+  const accepted = (Array.isArray(q.a) ? q.a : [q.a]).map(x=>x.toLowerCase());
+  const correct = accepted.includes(val);
+  const pts = correct ? Math.round(500+500*(tl/q.t)) * (isDouble(qi)?2:1) : 0;
+  const prev = myAnswers[qi];
+  if (prev) myScore -= (prev.pts||0);
+  myAnswers[qi] = { a:val, tl, correct, pts };
+  myScore += pts;
+  sendPresence();
+  renderQuestion();
+}
+
+function editInput() {
+  const qi = gs.currentQ;
+  if (gs.phase!=="question" || timeLeft()<=0) return;
+  const prev = myAnswers[qi];
+  if (prev) myScore -= (prev.pts||0);
+  delete myAnswers[qi];
+  sendPresence();
+  renderQuestion();
+  setTimeout(()=>document.getElementById("inp")?.focus(),50);
+}
+
+function hReveal() { clearInterval(timerIv); if (gs.phase==="question") setState("reveal", gs.currentQ); }
+
+// ─────────────── REVEAL ──────────────────────
+function renderReveal() {
+  const qi = gs.currentQ;
+  const q  = QAt(qi);
+  const dbl = isDouble(qi);
+  const myA = myAnswers[qi];
+  const correct = myA?.correct;
+  const pts = myA?.pts || 0;
+  const isInput = q.type === "input";
+  const correctAns = isInput ? (Array.isArray(q.a)?q.a[0]:q.a) : q.o[q.a];
+  const plist = Object.values(peers);
+
+  const correctBox = `
+    <div class="correct-box">
+      <div style="font-size:.75rem;color:var(--muted);margin-bottom:4px">정답</div>
+      <strong style="font-size:1.15rem;color:var(--correct)">${isInput?"✏️ ":""}${esc(correctAns)}</strong>
+      ${isInput&&Array.isArray(q.a)&&q.a.length>1?`<div style="font-size:.8rem;color:var(--muted);margin-top:4px">또는: ${q.a.slice(1).map(esc).join(", ")}</div>`:""}
+    </div>`;
+
+  let bars = "";
+  if (!isInput) {
+    const cnts = [0,0,0,0];
+    plist.forEach(p => { if (p.lastA?.qi===qi && typeof p.lastA?.a==="number") cnts[p.lastA.a]++; });
+    const tot = cnts.reduce((s,c)=>s+c,0)||1;
+    bars = `<div class="bars">` + q.o.map((opt,i)=>`
+      <div class="bar-row">
+        <div class="bar-lbl">${SHAPES[i]}</div>
+        <div class="bar-track">
+          <div class="bar-fill" style="width:${cnts[i]/tot*100}%;background:var(--${CLRS[i]});padding:${cnts[i]?"0 8px":"0"}">${cnts[i]>0?cnts[i]+"명":""}</div>
+        </div>
+        <div class="bar-cnt" style="${i===q.a?"color:#2ecc71;font-weight:900":""}">${i===q.a?"✓":""}</div>
+      </div>`).join("") + `</div>`;
+  } else {
+    const answered = plist.filter(p=>p.lastA?.qi===qi);
+    const ok = answered.filter(p=>p.lastA?.correct);
+    bars = answered.length ? `<div class="bars">
+      <div style="font-size:.82rem;color:var(--muted);margin-bottom:6px">정답자 (${ok.length}/${answered.length}명)</div>
+      <div class="chip-row">${ok.map(p=>`<div class="chip" style="background:#1a4a2e;color:#2ecc71">✅ ${esc(p.name)}</div>`).join("") || '<span style="color:var(--muted)">없음</span>'}</div>
+    </div>` : "";
+  }
+
+  if (isHost) {
+    const okN = plist.filter(p=>p.lastA?.qi===qi&&p.lastA?.correct).length;
+    const showLB = CHECKPOINTS.includes(qi) && qi+1<QS.length;
+    app.innerHTML = `
+      <div class="reveal-wrap" style="padding-bottom:120px">
+        <div style="font-size:1.3rem;font-weight:900">Q${qi+1} 정답 공개${dbl?" <span style='color:#ffd700'>⚡×2</span>":""}</div>
+        <div class="q-text" style="font-size:1rem;color:var(--muted)">${esc(q.q)}</div>
+        ${correctBox}
+        ${bars}
+        <div style="font-size:.82rem;color:var(--muted)">정답률 ${plist.length?Math.round(okN/plist.length*100):0}%</div>
+      </div>
+      <div class="host-bar">
+        ${qi+1<QS.length
+          ? (showLB ? `<button class="btn btn-next" onclick="hLB()">🏆 중간 순위 보기</button>` : `<button class="btn btn-next" onclick="hNext()">다음 문제 → Q${qi+2}</button>`)
+          : `<button class="btn btn-next" style="background:#2ecc71;color:#000" onclick="hLB()">🏆 최종 순위 보기</button>`}
+      </div>`;
+  } else {
+    app.innerHTML = `
+      <div class="reveal-wrap">
+        <div class="big-icon">${myName?(correct?"🎉":"😢"):"🎯"}</div>
+        ${myName?`<div class="feedback-msg" style="color:${correct?"var(--correct)":"var(--wrong)"}">${correct?"정답! 🔥":(myA&&myA.a!==null?"틀렸어요":"시간 초과")}</div>`:""}
+        ${correctBox}
+        ${myName&&correct?`<div class="pts-badge">+${pts}점${dbl?" ⚡더블!":""}</div>`:""}
+        ${myName?`<div style="color:var(--muted);font-size:.9rem">총점: ${myScore.toLocaleString()}점</div>`:""}
+        ${bars}
+        <div class="status" style="margin-top:8px">다음 문제를 기다리세요...</div>
+      </div>`;
+  }
+}
+
+function hNext() { setState("question", gs.currentQ+1); }
+function hLB()   { setState("lb", gs.currentQ); }
+function hDone() { setState("done", gs.currentQ); }
+function hReset(){ setState("lobby", 0, "s"+Date.now().toString(36)); }
+
+// ─────────────── LEADERBOARD ─────────────────
+function lbRows(delay) {
+  return [...Object.values(peers)].sort((a,b)=>(b.score||0)-(a.score||0)).slice(0,10).map((p,i)=>`
+    <div class="lb-row ${i===0?"r1":i===1?"r2":i===2?"r3":""}" style="animation-delay:${i*delay}s">
+      <div class="lb-rank">${MEDALS[i]||i+1}</div>
+      <div class="lb-name">${p.id===myId?"✨ ":""}${esc(p.name)}</div>
+      <div class="lb-score">${(p.score||0).toLocaleString()}점</div>
+    </div>`).join("");
+}
+function myRank() {
+  const s = [...Object.values(peers)].sort((a,b)=>(b.score||0)-(a.score||0));
+  const i = s.findIndex(p=>p.id===myId);
+  return i>=0 ? `${i+1}위 / ${s.length}명` : "";
+}
+
+function renderLB() {
+  const isLast = gs.currentQ >= QS.length-1;
+  app.innerHTML = `
+    <div class="lb-wrap">
+      <div class="lb-title">🏆 순위표</div>
+      <div style="color:var(--muted);font-size:.88rem">${isLast?"최종 결과!":"Round "+roundOf(gs.currentQ)+"/"+ROUNDS+" 완료 · Q"+(gs.currentQ+1)+"까지"}</div>
+      ${!isHost&&myName?`<div style="font-weight:700">내 순위: ${myRank()} · ${myScore.toLocaleString()}점</div>`:""}
+      <div class="lb-list">${lbRows(.09)||'<div class="status">아직 데이터가 없어요</div>'}</div>
+      ${isHost?`
+        <div style="margin-top:8px">
+          ${!isLast
+            ?`<button class="btn btn-next" style="width:auto;padding:14px 28px" onclick="hNext()">계속하기 → Q${gs.currentQ+2}</button>`
+            :`<button class="btn btn-next" style="width:auto;padding:14px 28px;background:#2ecc71;color:#000" onclick="hDone()">🎊 게임 종료</button>`}
+        </div>`
+        :`<div class="status">선생님을 기다리세요...</div>`}
+    </div>`;
+}
+
+// ─────────────── DONE ────────────────────────
+function renderDone() {
+  const ok = myAnswers.filter(a=>a&&a.correct).length;
+  app.innerHTML = `
+    <div class="done-wrap">
+      <div class="emoji-big">🎊 🏆 🎉</div>
+      <div style="font-size:2rem;font-weight:900">퀴즈 종료!</div>
+      ${myName&&!isHost?`
+        <div style="text-align:center">
+          <div class="final-score">${myScore.toLocaleString()}점</div>
+          <div class="final-acc">${ok} / ${QS.length} 정답 (${Math.round(ok/QS.length*100)}%) · ${myRank()}</div>
+        </div>`:""}
+      <div class="lb-list">${lbRows(.08)}</div>
+      ${isHost?`<button class="btn btn-reset" style="width:auto;padding:14px 28px;margin-top:8px" onclick="hReset()">🔄 새 게임</button>`:""}
+    </div>`;
+}
+
+// ─────────────── UTILS ───────────────────────
+function esc(s) { return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+function badgeCls(cat) {
+  if (cat.includes("Reading")) return "br";
+  if (cat.includes("Vocab"))   return "bv";
+  return "bg";
+}
+
+init();
+</script>
+</body>
+</html>
